@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const cron = require('node-cron')
 const { PORT, MONGODB_URI } = require('../config');
 
 const app = express();
@@ -19,4 +20,24 @@ app.get('/', (req, res) => {
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+});
+
+
+// Server ping for avoiding MongoDB crash for Idling
+const PingSchema = new mongoose.Schema({ lastPing: Date });
+const PingModel = mongoose.model('Ping', PingSchema);
+
+cron.schedule('0 0 * * *', async () => {
+  try {
+    console.log('Pinging MongoDB...');
+    // Update or insert a document in the Ping collection
+    const pingDoc = await PingModel.findOneAndUpdate(
+      {}, // Search for any document
+      { lastPing: new Date() }, // Update or set the lastPing field
+      { upsert: true, new: true } // Create the document if it doesn't exist
+    );
+    console.log('Ping successful:', pingDoc);
+  } catch (error) {
+    console.error('Ping to MongoDB failed:', error.message);
+  }
 });
